@@ -93,7 +93,7 @@ function ProductDetail() {
     return products.price !== products.promotionalPrice;
   };
 
-  // refector json format
+  // create data format from array that we got
   useEffect(() => {
     // Example using useEffect for data fetching (optional)
     if (!productsData || Object.keys(productsData).length === 0) {
