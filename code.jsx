@@ -7,7 +7,7 @@ import axios from "axios";
 // shirts-boxy-tailored-jacket มีครบ
 // accessories-classic-leather-crossbody-bag ไม่มี remains
 
-const permalink = "shoes-chelsea-boots";
+const permalink = "shirts-boxy-tailored-jacket";
 
 function ProductDetail() {
   const [products, setProducts] = useState([]);
@@ -66,7 +66,6 @@ function ProductDetail() {
         setSizes(variantSizes);
         setRemains(variantRemains);
         setColorCode(variantColorCode);
-        
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
@@ -93,9 +92,8 @@ function ProductDetail() {
     return products.price !== products.promotionalPrice;
   };
 
-  // create data format from array that we got
+  // reform json format
   useEffect(() => {
-    // Example using useEffect for data fetching (optional)
     if (!productsData || Object.keys(productsData).length === 0) {
       // Check if productsData is empty
       const newFormatData = colors.reduce((acc, currColor, index) => {
@@ -103,26 +101,23 @@ function ProductDetail() {
         const currentRemain = remains[index];
         const currentColorCode = colorCode[index];
         const currentSkuCode = skuCode[index]; // New addition
-
         // Create a new size object if it doesn't exist
         if (!acc[currColor]) {
           acc[currColor] = { sizes: {} };
         }
-
         // Check if the product has size options
-        if (currentSize && currentSize.trim() !== "") {
+        if (currentSize && currentSize.length > 0) {
           // Add size and remaining quantity to the current color's sizes object
           acc[currColor].sizes[currentSize] = {
             remains: currentRemain,
             skuCode: currentSkuCode,
-          }; // Include skuCode
+          };
         } else {
           // If the product has no size options, directly add remains and colorCode
           acc[currColor].remains = currentRemain;
           acc[currColor].colorCode = currentColorCode;
           acc[currColor].skuCode = currentSkuCode;
         }
-
         // Add color code to the current color object
         acc[currColor].colorCode = currentColorCode;
         return acc;
@@ -148,33 +143,41 @@ function ProductDetail() {
   const [selectedSize, setSelectedSize] = useState(null);
   const [isColorDisabled, setColorDisabled] = useState(false);
   const [isSizeDisabled, setSizeDisabled] = useState(false);
-  
- // what this fuction do?
+
+  // ใช้ set defaultColor defaultSize เพื่อแสดงผลในการ render ครั้งแรก watch [productsData]
   useEffect(() => {
-    // Set default color to the first color when productsData is available
+    // เช็คว่า productsData มีจริงไหม
     if (productsData && Object.keys(productsData).length > 0) {
       let defaultColor = null;
       let defaultSize = null;
       let allColorsOutOfStock = true;
 
+      //วนตลอดทุกสีถ้าสีไหนมี remains เมื่อไหร่ ก็ set defaultColor defaultSize
       for (const color of Object.keys(productsData)) {
         const colorData = productsData[color];
+        // เอา key ที่อยู่ภายใน size ทุก key มา filter หา remains ถ้าเจอว่ามี remains เก็บไว้ใน availableSizes
         const availableSizes = Object.keys(colorData.sizes).filter(
           (size) => colorData.sizes[size].remains > 0
         );
 
         if (availableSizes.length > 0) {
-          // If there are available sizes for this color, set it as default
+          // เซ็ตสีปัจจุบัน ไซส์ปัจจุบัน เป็น default
           defaultColor = color;
-          defaultSize = availableSizes[0]; // Set default size to the first available size
+          // ที่เป็น [0] ศูนย์เพราะมาจาก array (.filter)
+          defaultSize = availableSizes[0]; //ถ้าไม่เซ็ต size, qty แสดงไม่ถูก
+          // พร้อม set allColorsOutOfStock เป็น false
           allColorsOutOfStock = false;
+          // เจอสีไหนสีแรกก็ออกเลย
           break;
         }
       }
 
+      // ถ้ามันวนหมดไม่เจอสีไหนมี remains เลยก็จะมา if นี้ต่อ
+      // ถ้าของหมดจริง(allColorsOutOfStock) ซึ่ง initail ไว้แล้ว
       if (allColorsOutOfStock && Object.keys(productsData).length > 0) {
-        // If all colors are out of stock, set selectedColor to the first color
+        // ให้เสร็จสีเริ่มต้นเป็นสีแรกไปเลย
         defaultColor = Object.keys(productsData)[0];
+        // set ให้สี disable เพื่อทำเงื่อนไข render
         setColorDisabled(true); // Disable color selection
       } else {
         setColorDisabled(false); // Enable color selection
@@ -185,20 +188,30 @@ function ProductDetail() {
     }
   }, [productsData]);
 
-  // Update handleColorChange to correctly set selectedColor and selectedSize
+  // function เพื่อ set สีตามจาก onclick
   const handleColorChange = (color) => {
+    // set สีให้เป็นปัจจุบันตามที่รับค่ามา จากสีที่เรากด
     setSelectedColor(color);
+    // set colorData ให้เป็นปัจจุบันตามที่รับค่ามา จากสีที่เรากด
     const colorData = productsData[color];
+    // พอสีเป็นปัจจุบันแล้ว ก็มา filter หา sizes ในสีนั้นๆที่มีของ (remains > 0) เก็บทุก size ที่ของไว้ใน availableSizes[]
     const availableSizes = Object.keys(colorData.sizes).filter(
       (size) => colorData.sizes[size].remains > 0
     );
 
+    // จากข้างบนถ้าไม่มีของเลยก็จะเข้าเงื่อนไข
     if (availableSizes.length === 0) {
       // If no sizes are available for the selected color, reset the selected size
+      // ซึ่งให้ set เป็น null ไปเลยเพื่อเคสนี่โยงไปถึง qty section เพราะพอ null แล้ว qty ก็ disable เพราะไม่มีอะไรให้ render
       setSelectedSize(null);
-      setSizeDisabled(true); // Disable size selection
+      // set disable เพื่อไปทำให้การแสดงผลใน size มันเทาตามเงื่อนไขของเรา
+      setSizeDisabled(true);
+
+      // จากข้างบนถ้ามีของ
     } else {
-      setSizeDisabled(false); // Enable size selection
+      // set false เพื่อจะได้แสดง choice ได้ตามปกติ
+      setSizeDisabled(false);
+      // ถ้าไซต์ที่เลือกจากสีก่อน ไม่ได้มีอยู่ในสีใหม่ ให้ set default เป็นตัวแรกของสีใหม่
       if (!availableSizes.includes(selectedSize)) {
         // If the selected size is not available for the new color
         const defaultSize = availableSizes[0]; // Get the first available size of the new color
@@ -269,7 +282,7 @@ function ProductDetail() {
                         fill="#222222"
                       />
                       <path
-                       fill="white"
+                      fill="white"
                       />
                     </svg>
 
@@ -288,7 +301,7 @@ function ProductDetail() {
                         fill="#222222"
                       />
                       <path
-                        fill="white"
+                         fill="white"
                       />
                     </svg>
                   </div>
@@ -320,7 +333,7 @@ function ProductDetail() {
                       fill="#FF000D"
                     />
                     <path
-                       fill="white"
+                        fill="white"
                     />
                   </svg>
                   <svg
@@ -338,7 +351,7 @@ function ProductDetail() {
                       fill="#FF000D"
                     />
                     <path
-                      fill="white"
+                       fill="white"
                     />
                   </svg>
                 </div>
@@ -348,12 +361,41 @@ function ProductDetail() {
                 className="absolute opacity-60 top-1/2 left-2 p-2 bg-white rounded-full hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary-700 lg:h-[70px] lg:w-[70px] lg:left-4"
                 onClick={previousButton}
               >
+                <div className="lg:flex lg:justify-center">
+                  <svg
+                    className="h-[15px] w-[15px] text-black lg:h-[36px] lg:w-[36px]"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M15 5l-7 7 7 7"
+                    />
+                  </svg>
+                </div>
               </button>
-              {/* Arrow next/Previous button */}
               <button
                 className="absolute opacity-60 top-1/2 right-2 p-2 bg-white rounded-full hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary-700 lg:h-[70px] lg:w-[70px] lg:right-4"
                 onClick={nextButton}
               >
+                <div className="lg:flex lg:justify-center">
+                  <svg
+                    className="h-[15px] w-[15px] text-black lg:h-[36px] lg:w-[36px]"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </div>
               </button>
             </div>
 
@@ -379,28 +421,22 @@ function ProductDetail() {
             </div>
           </div>
         )}
-        
         {/* Detail Section */}
         <div className="mx-4 lg:basis-1/2 lg:mx-0 lg:m-0 lg:mt-28 ">
-          {/* ID */}
           <p className="text-lg font-semibold mb-1 lg:text-2lg lg:font-bold lg:mb-4">
             id : {products.skuCode}
           </p>
-          {/* Name */}
           <h4 className="text-[40px] font-bold mb-1 lg:text-5lg lg:mb-4">
             {products.name}
           </h4>
-          {/* Description */}
           <p className="text-lg font-semibold text-secondary-700 mb-7 lg:text-lg lg:mb-6 lg:text-secondary-s">
             {products.description}
           </p>
-          {/* Normal Price */}
           {stock !== 0 && !hasDiscount() && (
             <p className="text-[32px] font-bold mb-7 lg:text-[40px] lg:mb-6">
               THB {products.price}.00
             </p>
           )}
-          {/* Out of stock */}
           {stock == 0 && (
             <div>
               <p className="text-[32px] font-bold mb-2 lg:text-[40px] ">
@@ -411,7 +447,6 @@ function ProductDetail() {
               </p>
             </div>
           )}
-          {/* Discount price */}
           {hasDiscount() && (
             <div>
               <div className=" inline-block bg-danger mb-2">
@@ -425,31 +460,49 @@ function ProductDetail() {
               </p>
             </div>
           )}
-          {/* Tree option section */}
-          <div className="w-[180px] h-[40px] border-2 mb-[54px]"></div>
+
           {/* color section */}
           <p className="text-secondary-700">Color</p>
           <div className="flex justify-between mx-10">
+            {/* map สี จาก key สีใน object โดยสินค้าเข้าถึง key สีผ่าน Object.keys(productsData) */}
             {Object.keys(productsData).map((color) => {
+              {
+                /* ได้สีมาไปใส่ productsData[color] เพื่อเก็บค่าทุกอย่างที่อยู่ภายใต้ key ของสีนั้นๆลงใน colorData*/
+              }
               const colorData = productsData[color];
+              {
+                /* เข้าไปหา values ของแต่ละ key(sizes ซึ่งคือ (x,m,l,xl)) ซึ่งจะได้ values ที่อยู่ภายในแต่ละไซส์
+               มาเป็น {remains: 0, skuCode: 'C0900611'} จากนั้น .some แล้วจะเข้าไปอีกทีผ่าน
+                size ที่เอาไป .remains เพื่อเข้าถึงค่าของที่เหลือ*/
+              }
               const hasStock = Object.values(colorData.sizes).some(
                 (size) => size.remains > 0
-              ); // Check if color has remaining stock
+              );
+              {
+                /* .some ถ้าเจอของอย่างเดียวที่ตรงเงื่อนไง จะคืน ค่า true,false ออกไป */
+              }
               return (
                 <div
                   className={` ${
+                    // isColorDisabled ก็คือ ไม่มีของ out of stock
                     isColorDisabled ? "cursor-not-allowed" : "cursor-pointer"
                   }`}
+                  // เช็คสองเงื่อนไขเพราะว่า ถ้าเงื่อนไขแรกมันเป็นจริงซึ่งก็คือสีไม่ได้ถูก Disabled ถึงค่อย call handleColorChange(color) ได้
+                  // ถ้าไม่เช็คว่ามัน Disabled กดกี่ที call handleColorChange(color) ตลอดซึ่งไม่ดีต่อ performance
                   onClick={() => !isColorDisabled && handleColorChange(color)}
                   key={color}
                 >
                   <div
-                    className={` flex w-[54px] h-[54px] border ${
+                    // เงื่อนไขเช็คสำหรับใส่กรอบให้ที่ถูกเลือก ถ้าไม่ตรงเงื่อนไง ไม่มีกรอบ (ครั้งแรกที่ render สีแรกนั้นจะมีกรอบเพราะตรง selectedColor)
+                    className={` flex w-[54px] h-[54px] border-2 ${
+                      // สีที่ออกมาจาก loop ตรงกับ selectedColor ซึ่งคือ default ไหม และ hasStock ก็คือมีของ
                       (selectedColor === color && hasStock) ||
+                      // สีที่ออกมาจาก loop ตรงกับ selectedColor ซึ่งคือ default ไหม และ ไม่ ColorDisabled ซึ่งก็คือของไม่หมด
                       (selectedColor === color && !isColorDisabled)
                         ? "border-primary-700"
                         : ""
                     }`}
+                    // set สี แต่ละตัวเลือก ให้ตรงกับ colorCode ของมัน
                     style={{ backgroundColor: colorData.colorCode }}
                   ></div>
                   <p className="text-md text-gray-700 mt-5">{color}</p>
@@ -457,29 +510,45 @@ function ProductDetail() {
               );
             })}
           </div>
-          
+
           {selectedColor && productsData[selectedColor] && (
             <div>
               {/* Size options */}
               <div>
                 <p className="text-secondary-700">Size</p>
                 <div className="flex justify-between mx-10">
+                  {/* render ใหม่ตามสีที่ถูก selected จาก handleColorChange(color) หรือ default color (ครั้งแรก)*/}
+                  {/*(productsData[selectedColor] syntax นี้ทำให้ได้ของทั้งหมดในภายใต้ [] หรือ key นั้นๆ )
+                  "colorCode": "#0000Fl",
+                  "sizes": {
+                    "S": { remains: 2 },
+                    "M": { remains: 1 },
+                    "L": { remains: 3 }
+                    .sizes เพื่อเข้าถึง key sizes ทั้งหมด แล้ววนด้วย .map */}
                   {Object.keys(productsData[selectedColor].sizes).map(
                     (size) => {
+                      //เข้าไปถึงข้อมูลในแต่ละ key ของ sizes { remains: 1 }
                       const sizeData = productsData[selectedColor].sizes[size];
-                      const isDisabled = sizeData.remains === 0; // Check if size has no remaining stock
+                      //size ไหนไม่มีของ (remains = 0) ก็จะคืนค่า true false ใส่ isDisabled
+                      const isDisabled = sizeData.remains === 0;
                       return (
                         <div
-                          className={`cursor-pointer`}
+                          className={` ${
+                            isDisabled ? "cursor-not-allowed" : "cursor-pointer"
+                          }`}
+                          // เช็คสองเงื่อนไขเพราะว่า ถ้าเงื่อนไขแรกมันเป็นจริงซึ่งก็คือ size ไม่ได้ถูก Disabled ถึงค่อย call handleSizeChange(size) ได้
+                          // ถ้าไม่เช็คว่ามัน Disabled กดกี่ที call handleSizeChange(size) ตลอดซึ่งไม่ดีต่อ performance
                           onClick={() => !isDisabled && handleSizeChange(size)}
                           key={size}
                         >
                           <div
-                            className={`flex w-[54px] h-[54px] border ${
+                            // ถ้าสีที่เลือก (defalut size) อยู่ไม่ตรงกับ size ที่ถูก render ก็ไม่มี border
+                            // จนกว่าจะ render เจอของที่กันถึงจะมี border
+                            className={`flex w-[54px] h-[54px] items-center justify-center border ${
                               selectedSize === size ? "border-primary-700" : ""
                             } ${isDisabled ? "bg-gray-300" : ""}`}
                           >
-                            {size}
+                            <p>{size}</p>
                           </div>
                         </div>
                       );
@@ -494,28 +563,48 @@ function ProductDetail() {
                 <div>
                   <select
                     className={`border-[1px] h-[54px] w-full pl-[10px] ${
+                      // ? คือ Optional chaining (ES11) ทำการเช็ค object ที่เราต้องการอ่าน
+                      // ว่ามีค่าหรือไม่หากไม่มีก็จะ fallback undefined ให้เราแทนที่จะ throw error
                       Object.values(
+                        // ถ้าไม่มีสีถูก select อยู่ (ในกรณีนี้อาจเป็นของหมดทุกสี สีจึงไม่ถูก select)
+                        // จะให้ .every ใช้กับ {} แทนเพราะเรามี || รองรับไว้เลยเลื่อมาเป็น {}
                         productsData[selectedColor]?.sizes || {}
+                        //every เข้าไปหา remain ของ size ทุก size
+                        // (Every คือเมธอดสำหรับทดสอบข้อมูลทุกตัว โดยเมื่อผ่านเงื่อนไขที่กำหนด ทุกค่า จะคืนค่า true หรือ false)
                       ).every((sizeData) => sizeData.remains === 0)
                         ? "bg-gray-300"
                         : ""
                     }`}
+                    // เป็นเงื่อนไขเหมือนการแสดงผลเลย ถ้าไม่มีข้อมูลในทุก size (select ตัวนี้ก็จะ disable กดไม่ได้ไป (ได้ค่า ture จาก every))
                     disabled={Object.values(
                       productsData[selectedColor]?.sizes || {}
                     ).every((sizeData) => sizeData.remains === 0)}
+                    // value เป็น string เปล่าเพราะ ถ้ามีสีหรือ size ถูกเลือกและ render ใหม่ qty จะได้ล้างค่าตามไปด้วย
                     value={""} // Ensure that the select box value is reset when color or size changes
                     onChange={() => {}} // Prevent selecting a value when disabled
                   >
                     {selectedColor &&
                       selectedSize &&
+                      // Array.from พร้อมส่ง Array-like Object เข้าไปเพื่อสร้างอาร์เรย์ใหม่ได้ ในที่นี้คือ length ที่มี
+                      // ความยาวตาม condition ตามที่เรากำหนดที่ดึงมาจากข้อมูล
                       Array.from(
                         {
                           length:
+                            // ความยาวมีได้ 3 case
+                            // productsData[selectedColor].sizes[selectedSize]?.remains
+                            // ของมาใน json format ปกติ
+                            // productsData[selectedColor]?.remains
+                            // ของไม่มี size เข้าถึง remains ได้เลยตามโครงสร้าง reform (แว่น,กระเป๋า)
+                            // 0
+                            // ของ out of stock
                             productsData[selectedColor].sizes[selectedSize]
                               ?.remains ||
                             productsData[selectedColor]?.remains ||
                             0,
                         },
+
+                        // สมมุติได้ remain ของนี้มา 20 ตัว = index[0,1,2,3...,19]
+                        //  = ก็จะ map option จนครบจำนวนข้อมูลซึ่งมี 20 ตัว
                         (_, index) => (
                           <option key={index + 1} value={index + 1}>
                             {index + 1}
@@ -523,16 +612,10 @@ function ProductDetail() {
                         )
                       )}
                   </select>
-                  {Object.values(
-                    productsData[selectedColor]?.sizes || {}
-                  ).every((sizeData) => sizeData.remains === 0) && (
-                    <p className="text-xs text-gray-500 mt-1">Out of stock</p>
-                  )}
                 </div>
               </div>
             </div>
           )}
-          {/* button add to cart */}
           <button className="bg-black w-full h-[54px] text-base text-white mt-10">
             Add to cart
           </button>
